@@ -6,7 +6,8 @@ Move one selection into X or Y alignment with a second selection, then continue 
 
 KiCad 10 can align items within one selection and can constrain movement to horizontal or vertical lines. It cannot use one group as the moving set and a second group as the alignment reference, then transition directly into constrained placement.
 
-Move Aligned To supplies that missing workflow without patching KiCad.
+Move Aligned To supplies that missing workflow through a small KiCad IPC extension. The
+repository's Nix flake builds the matching patched KiCad revision.
 
 ## Screenshots
 
@@ -31,19 +32,23 @@ The initial alignment and final placement are one KiCad undo operation. Cancelli
 
 ## Requirements
 
-- KiCad 10
+- The patched KiCad build supplied by this repository
 - IPC API enabled in **Preferences → Preferences → Plugins**
-- Python 3.10 or newer with Tk support
+- Python 3.10 or newer with wxPython
 
 KiCad creates and manages the plugin's Python environment from `requirements.txt`.
 
 ## Install with Nix
 
 ```sh
+nix build github:unguentum/kicad-axis-constrained-move#patched-kicad
 nix run github:unguentum/kicad-axis-constrained-move#install
+./result/bin/kicad
 ```
 
-Restart KiCad, or reload plugins in the PCB Editor.
+The patched source is pinned to
+[`unguentum/kicad-source-mirror@29d6480`](https://github.com/unguentum/kicad-source-mirror/commit/29d648080d9aa1085393d2bdc20c538af5c00e76).
+Reload plugins in the PCB Editor after installation.
 
 For another KiCad data-directory version:
 
