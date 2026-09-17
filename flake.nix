@@ -26,6 +26,16 @@
           wxpython
           zstandard
         ]);
+        testPythonEnv = python.withPackages (ps: with ps; [
+          jsonschema
+          kicad-python
+          protobuf
+          pynng
+          pytest
+          ruff
+          typing-extensions
+          zstandard
+        ]);
         patchedKiCad = pkgs.kicad.overrideAttrs (old: {
           version = "10.99-axis-constrained-move";
           src = kicad-src;
@@ -58,7 +68,7 @@
         };
         testScript = pkgs.writeShellApplication {
           name = "test-plugin";
-          runtimeInputs = [ pythonEnv ];
+          runtimeInputs = [ testPythonEnv ];
           text = ''
             export PYTHONPATH="$PWD''${PYTHONPATH:+:$PYTHONPATH}"
             pytest -q

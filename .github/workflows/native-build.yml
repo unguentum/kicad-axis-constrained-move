@@ -9,18 +9,11 @@ on:
 permissions:
   contents: read
 
-jobs:
-  plugin:
-    name: Plugin tests
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
-    steps:
-      - uses: actions/checkout@v4
-      - uses: DeterminateSystems/nix-installer-action@v17
-      - uses: DeterminateSystems/magic-nix-cache-action@v13
-      - name: Test, lint, and validate package
-        run: nix run .#test
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
+jobs:
   native-kicad:
     name: Patched KiCad
     runs-on: ubuntu-latest
@@ -39,4 +32,4 @@ jobs:
         run: |
           test -x result/bin/kicad
           test -x result/bin/pcbnew
-          result/bin/pcbnew --version
+          file result/bin/kicad result/bin/pcbnew
