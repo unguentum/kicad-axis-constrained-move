@@ -1,0 +1,42 @@
+name: Native KiCad build
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  plugin:
+    name: Plugin tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: DeterminateSystems/nix-installer-action@v17
+      - uses: DeterminateSystems/magic-nix-cache-action@v13
+      - name: Test, lint, and validate package
+        run: nix run .#test
+
+  native-kicad:
+    name: Patched KiCad
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    steps:
+      - uses: actions/checkout@v4
+      - name: Free runner disk space
+        run: |
+          sudo rm -rf /usr/local/lib/android /usr/share/dotnet /opt/ghc
+          df -h /
+      - uses: DeterminateSystems/nix-installer-action@v17
+      - uses: DeterminateSystems/magic-nix-cache-action@v13
+      - name: Build patched KiCad
+        run: nix build .#patched-kicad --print-build-logs --keep-going
+      - name: Smoke-test executables
+        run: |
+          test -x result/bin/kicad
+          test -x result/bin/pcbnew
+          result/bin/pcbnew --version
