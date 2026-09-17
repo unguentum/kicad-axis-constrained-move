@@ -8,6 +8,12 @@ KiCad 10 can align items within one selection and can constrain movement to hori
 
 Move Aligned To supplies that missing workflow without patching KiCad.
 
+## Screenshots
+
+![Move Aligned To dialog over the KiCad PCB Editor](screenshots/move-aligned-dialog.png)
+
+![Example board with moving and reference selections](screenshots/kicad-editor.png)
+
 ## Workflow
 
 1. Select the items that should move.

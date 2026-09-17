@@ -75,8 +75,9 @@
             pythonEnv
             pkgs.git
             pkgs.kicad
+            pkgs.scrot
             pkgs.xdotool
-            pkgs.xorg.xvfb
+            pkgs.xvfb
           ];
           shellHook = ''
             export PYTHONPATH="$PWD:$PYTHONPATH"
