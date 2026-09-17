@@ -1,5 +1,7 @@
 # Move Aligned To for KiCad
 
+[![Native KiCad build](https://github.com/unguentum/kicad-axis-constrained-move/actions/workflows/native-build.yml/badge.svg)](https://github.com/unguentum/kicad-axis-constrained-move/actions/workflows/native-build.yml)
+
 Move one selection into X or Y alignment with a second selection, then continue with KiCad's native interactive movement along the axis that preserves that alignment.
 
 ## Why
