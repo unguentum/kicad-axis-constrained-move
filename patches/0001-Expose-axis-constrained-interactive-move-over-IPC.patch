@@ -1,0 +1,249 @@
+From e06240eed58b2ef0de3ec3438797c91e5e14d696 Mon Sep 17 00:00:00 2001
+From: unguentum <witherbones1@gmail.com>
+Date: Thu, 17 Sep 2026 20:03:39 +1000
+Subject: [PATCH] Expose axis-constrained interactive move over IPC
+
+---
+ api/proto/board/board_commands.proto |  4 +++
+ include/tool/tool_manager.h          |  8 +++++
+ pcbnew/api/api_handler_board.cpp     | 21 +++++++++++-
+ pcbnew/tools/edit_tool.cpp           |  1 +
+ pcbnew/tools/edit_tool_move_fct.cpp  | 48 ++++++++++++++++++++++------
+ pcbnew/tools/pcb_actions.cpp         |  8 +++++
+ pcbnew/tools/pcb_actions.h           | 10 ++++++
+ 7 files changed, 90 insertions(+), 10 deletions(-)
+
+diff --git a/api/proto/board/board_commands.proto b/api/proto/board/board_commands.proto
+index 26f9d222..f7eb7c78 100644
+--- a/api/proto/board/board_commands.proto
++++ b/api/proto/board/board_commands.proto
+@@ -638,4 +638,8 @@ message InteractiveMoveItems
+   kiapi.common.types.DocumentSpecifier board = 1;
+ 
+   repeated kiapi.common.types.KIID items = 2;
++
++  // Optionally lock the interactive move to one axis.  The editor displays its native
++  // snap guide along the requested axis.  AA_UNKNOWN preserves the traditional free move.
++  kiapi.common.types.AxisAlignment axis_constraint = 3;
+ }
+diff --git a/include/tool/tool_manager.h b/include/tool/tool_manager.h
+index 58be3e28..b2ea397d 100644
+--- a/include/tool/tool_manager.h
++++ b/include/tool/tool_manager.h
+@@ -283,6 +283,14 @@ public:
+         return doRunAction( aAction, false, a, aCommit, true );
+     }
+ 
++    template<typename T, std::enable_if_t<!std::is_convertible_v<T, COMMIT*>>* = nullptr>
++    bool PostAPIAction( const TOOL_ACTION& aAction, T aParam, COMMIT* aCommit )
++    {
++        ki::any a( static_cast<T>( aParam ) );
++
++        return doRunAction( aAction, false, a, aCommit, true );
++    }
++
+     /**
+      * Send a cancel event to the tool currently at the top of the tool stack.
+      */
+diff --git a/pcbnew/api/api_handler_board.cpp b/pcbnew/api/api_handler_board.cpp
+index 7fd66d93..1ac4e239 100644
+--- a/pcbnew/api/api_handler_board.cpp
++++ b/pcbnew/api/api_handler_board.cpp
+@@ -1003,7 +1003,26 @@ HANDLER_RESULT<Empty> API_HANDLER_BOARD::handleInteractiveMoveItems(
+     mgr->RunAction<EDA_ITEMS*>( ACTIONS::selectItems, &toSelect );
+ 
+     COMMIT* commit = getCurrentCommit( aCtx.ClientName );
+-    mgr->PostAPIAction( PCB_ACTIONS::move, commit );
++    MOVE_AXIS_CONSTRAINT axisConstraint = MOVE_AXIS_CONSTRAINT::NONE;
++
++    switch( aCtx.Request.axis_constraint() )
++    {
++    case kiapi::common::types::AA_X_AXIS:
++        axisConstraint = MOVE_AXIS_CONSTRAINT::HORIZONTAL;
++        break;
++
++    case kiapi::common::types::AA_Y_AXIS:
++        axisConstraint = MOVE_AXIS_CONSTRAINT::VERTICAL;
++        break;
++
++    default:
++        break;
++    }
++
++    if( axisConstraint == MOVE_AXIS_CONSTRAINT::NONE )
++        mgr->PostAPIAction( PCB_ACTIONS::move, commit );
++    else
++        mgr->PostAPIAction( PCB_ACTIONS::moveConstrained, axisConstraint, commit );
+ 
+     return Empty();
+ }
+diff --git a/pcbnew/tools/edit_tool.cpp b/pcbnew/tools/edit_tool.cpp
+index 7fa69c43..d5402771 100644
+--- a/pcbnew/tools/edit_tool.cpp
++++ b/pcbnew/tools/edit_tool.cpp
+@@ -4069,6 +4069,7 @@ void EDIT_TOOL::setTransitions()
+ {
+     Go( &EDIT_TOOL::GetAndPlace,              PCB_ACTIONS::getAndPlace.MakeEvent() );
+     Go( &EDIT_TOOL::Move,                     PCB_ACTIONS::move.MakeEvent() );
++    Go( &EDIT_TOOL::Move,                     PCB_ACTIONS::moveConstrained.MakeEvent() );
+     Go( &EDIT_TOOL::Move,                     PCB_ACTIONS::moveIndividually.MakeEvent() );
+     Go( &EDIT_TOOL::Drag,                     PCB_ACTIONS::drag45Degree.MakeEvent() );
+     Go( &EDIT_TOOL::Drag,                     PCB_ACTIONS::dragFreeAngle.MakeEvent() );
+diff --git a/pcbnew/tools/edit_tool_move_fct.cpp b/pcbnew/tools/edit_tool_move_fct.cpp
+index ed0754f1..c7dc6632 100644
+--- a/pcbnew/tools/edit_tool_move_fct.cpp
++++ b/pcbnew/tools/edit_tool_move_fct.cpp
+@@ -1113,6 +1113,10 @@ bool EDIT_TOOL::doMoveSelection( const TOOL_EVENT& aEvent, BOARD_COMMIT* aCommit
+             };
+ 
+     LEADER_MODE angleSnapMode = GetAngleSnapMode();
++    MOVE_AXIS_CONSTRAINT apiAxisConstraint = MOVE_AXIS_CONSTRAINT::NONE;
++
++    if( aEvent.IsAction( &PCB_ACTIONS::moveConstrained ) )
++        apiAxisConstraint = aEvent.Parameter<MOVE_AXIS_CONSTRAINT>();
+     bool eatFirstMouseUp = true;
+     bool allowRedraw3D   = cfg->m_Display.m_Live3DRefresh;
+     bool showCourtyardConflicts = !m_isFootprintEditor && cfg->m_ShowCourtyardCollisions;
+@@ -1145,7 +1149,11 @@ bool EDIT_TOOL::doMoveSelection( const TOOL_EVENT& aEvent, BOARD_COMMIT* aCommit
+ 
+     // Axis locking for arrow key movement
+     enum class AXIS_LOCK { NONE, HORIZONTAL, VERTICAL };
+-    AXIS_LOCK axisLock = AXIS_LOCK::NONE;
++    AXIS_LOCK axisLock = apiAxisConstraint == MOVE_AXIS_CONSTRAINT::HORIZONTAL
++                                 ? AXIS_LOCK::HORIZONTAL
++                         : apiAxisConstraint == MOVE_AXIS_CONSTRAINT::VERTICAL
++                                 ? AXIS_LOCK::VERTICAL
++                                 : AXIS_LOCK::NONE;
+     long      lastArrowKeyAction = 0;
+ 
+     // The footprint editor has no DRC_TOOL, so the engine may be unavailable.
+@@ -1192,8 +1200,23 @@ bool EDIT_TOOL::doMoveSelection( const TOOL_EVENT& aEvent, BOARD_COMMIT* aCommit
+                     grid.SetSnapLineOrigin( originalPos );
+             };
+ 
+-    configureAngleSnap( angleSnapMode );
+-    displayConstraintsMessage( angleSnapMode );
++    if( apiAxisConstraint == MOVE_AXIS_CONSTRAINT::HORIZONTAL )
++    {
++        grid.SetSnapLineDirections( { VECTOR2I( 1, 0 ) } );
++        grid.SetSnapLineOrigin( originalPos );
++        editFrame->DisplayConstraintsMsg( _( "Move axis: horizontal" ) );
++    }
++    else if( apiAxisConstraint == MOVE_AXIS_CONSTRAINT::VERTICAL )
++    {
++        grid.SetSnapLineDirections( { VECTOR2I( 0, 1 ) } );
++        grid.SetSnapLineOrigin( originalPos );
++        editFrame->DisplayConstraintsMsg( _( "Move axis: vertical" ) );
++    }
++    else
++    {
++        configureAngleSnap( angleSnapMode );
++        displayConstraintsMessage( angleSnapMode );
++    }
+ 
+     // Prime the pump
+     m_toolMgr->PostAction( ACTIONS::refreshPreview );
+@@ -1212,6 +1235,7 @@ bool EDIT_TOOL::doMoveSelection( const TOOL_EVENT& aEvent, BOARD_COMMIT* aCommit
+             eatFirstMouseUp = false;
+ 
+         if(   evt->IsAction( &PCB_ACTIONS::move )
++           || evt->IsAction( &PCB_ACTIONS::moveConstrained )
+            || evt->IsMotion()
+            || evt->IsDrag( BUT_LEFT )
+            || evt->IsAction( &ACTIONS::refreshPreview )
+@@ -1523,7 +1547,8 @@ bool EDIT_TOOL::doMoveSelection( const TOOL_EVENT& aEvent, BOARD_COMMIT* aCommit
+                     {
+                         selection.SetReferencePoint( pickedReferencePoint );
+ 
+-                        if( angleSnapMode != LEADER_MODE::DIRECT )
++                        if( apiAxisConstraint != MOVE_AXIS_CONSTRAINT::NONE
++                            || angleSnapMode != LEADER_MODE::DIRECT )
+                             grid.SetSnapLineOrigin( selection.GetReferencePoint() );
+ 
+                         controls->ForceCursorPosition( true, pickedReferencePoint );
+@@ -1535,7 +1560,8 @@ bool EDIT_TOOL::doMoveSelection( const TOOL_EVENT& aEvent, BOARD_COMMIT* aCommit
+ 
+                         selection.SetReferencePoint( dragOrigin );
+ 
+-                        if( angleSnapMode != LEADER_MODE::DIRECT )
++                        if( apiAxisConstraint != MOVE_AXIS_CONSTRAINT::NONE
++                            || angleSnapMode != LEADER_MODE::DIRECT )
+                             grid.SetSnapLineOrigin( dragOrigin );
+ 
+                         grid.SetAuxAxes( true, dragOrigin );
+@@ -1633,7 +1659,8 @@ bool EDIT_TOOL::doMoveSelection( const TOOL_EVENT& aEvent, BOARD_COMMIT* aCommit
+                     originalPos = nextItem->GetPosition();
+                     m_selectionTool->AddItemToSel( nextItem );
+                     selection.SetReferencePoint( originalPos );
+-                    if( angleSnapMode != LEADER_MODE::DIRECT )
++                    if( apiAxisConstraint != MOVE_AXIS_CONSTRAINT::NONE
++                        || angleSnapMode != LEADER_MODE::DIRECT )
+                         grid.SetSnapLineOrigin( selection.GetReferencePoint() );
+ 
+                     sel_items.clear();
+@@ -1678,9 +1705,12 @@ bool EDIT_TOOL::doMoveSelection( const TOOL_EVENT& aEvent, BOARD_COMMIT* aCommit
+         }
+         else if( evt->IsAction( &PCB_ACTIONS::angleSnapModeChanged ) )
+         {
+-            angleSnapMode = GetAngleSnapMode();
+-            configureAngleSnap( angleSnapMode );
+-            displayConstraintsMessage( angleSnapMode );
++            if( apiAxisConstraint == MOVE_AXIS_CONSTRAINT::NONE )
++            {
++                angleSnapMode = GetAngleSnapMode();
++                configureAngleSnap( angleSnapMode );
++                displayConstraintsMessage( angleSnapMode );
++            }
+             evt->SetPassEvent( true );
+         }
+         else if( evt->IsAction( &ACTIONS::increment ) )
+diff --git a/pcbnew/tools/pcb_actions.cpp b/pcbnew/tools/pcb_actions.cpp
+index 030d0d5e..56fb2cdc 100644
+--- a/pcbnew/tools/pcb_actions.cpp
++++ b/pcbnew/tools/pcb_actions.cpp
+@@ -896,6 +896,14 @@ TOOL_ACTION PCB_ACTIONS::move( TOOL_ACTION_ARGS()
+         .Flags( AF_ACTIVATE )
+         .Parameter( ACTIONS::CURSOR_EVENT_TYPE::CURSOR_NONE ) );
+ 
++TOOL_ACTION PCB_ACTIONS::moveConstrained( TOOL_ACTION_ARGS()
++        .Name( "pcbnew.InteractiveMove.moveConstrained" )
++        .Scope( AS_GLOBAL )
++        .FriendlyName( _( "Move Constrained" ) )
++        .Icon( BITMAPS::move )
++        .Flags( AF_ACTIVATE )
++        .Parameter( MOVE_AXIS_CONSTRAINT::NONE ) );
++
+ TOOL_ACTION PCB_ACTIONS::moveIndividually( TOOL_ACTION_ARGS()
+         .Name( "pcbnew.InteractiveMove.moveIndividually" )
+         .Scope( AS_GLOBAL )
+diff --git a/pcbnew/tools/pcb_actions.h b/pcbnew/tools/pcb_actions.h
+index cc2132b2..86d9af38 100644
+--- a/pcbnew/tools/pcb_actions.h
++++ b/pcbnew/tools/pcb_actions.h
+@@ -38,6 +38,13 @@ enum class ZONE_MODE
+     STITCH
+ };
+ 
++enum class MOVE_AXIS_CONSTRAINT
++{
++    NONE,
++    HORIZONTAL,
++    VERTICAL
++};
++
+ class DESIGN_BLOCK;
+ 
+ /**
+@@ -107,6 +114,9 @@ public:
+     /// move or drag an item
+     static TOOL_ACTION move;
+ 
++    /// move while locked to one axis (IPC/API use)
++    static TOOL_ACTION moveConstrained;
++
+     /// move items one-by-one
+     static TOOL_ACTION moveIndividually;
+ 
+-- 
+2.51.1
+

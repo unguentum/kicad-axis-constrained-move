@@ -18,6 +18,23 @@
         "type": "github"
       }
     },
+    "kicad-src": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1789640046,
+        "narHash": "sha256-2szl/AJ7yeQNpp9p5PUcOPzlruV8IHbZMlWTYrzK54k=",
+        "owner": "unguentum",
+        "repo": "kicad-source-mirror",
+        "rev": "29d648080d9aa1085393d2bdc20c538af5c00e76",
+        "type": "github"
+      },
+      "original": {
+        "owner": "unguentum",
+        "repo": "kicad-source-mirror",
+        "rev": "29d648080d9aa1085393d2bdc20c538af5c00e76",
+        "type": "github"
+      }
+    },
     "nixpkgs": {
       "locked": {
         "lastModified": 1789546076,
@@ -37,6 +54,7 @@
     "root": {
       "inputs": {
         "flake-utils": "flake-utils",
+        "kicad-src": "kicad-src",
         "nixpkgs": "nixpkgs"
       }
     },

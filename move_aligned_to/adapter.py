@@ -3,13 +3,13 @@ from __future__ import annotations
 from collections.abc import Iterable, Sequence
 from typing import Any
 
+from google.protobuf.empty_pb2 import Empty
 from kipy import KiCad
 from kipy.board_types import BoardItem, Group
 from kipy.geometry import Vector2
+from kipy.proto.board import board_commands_pb2
 
-from .model import Bounds, stable_id
-
-ORTHOGONAL_LINE_MODE_ACTION = "pcbnew.EditorControl.lineModeOrthonal"
+from .model import Axis, Bounds, stable_id
 
 
 class UnsupportedItemError(RuntimeError):
@@ -96,6 +96,7 @@ class KiCadAdapter:
         moving_items: Sequence[BoardItem],
         dx: int,
         dy: int,
+        axis: Axis,
     ) -> None:
         delta = Vector2.from_xy(dx, dy)
         concrete = self._expand_groups(moving_items)
@@ -115,20 +116,29 @@ class KiCadAdapter:
             if len(updated) != len(concrete):
                 raise RuntimeError("KiCad did not update every selected item")
 
-            # KiCad intentionally misspells this public action name as "Orthonal".
-            response = self.kicad.run_action(ORTHOGONAL_LINE_MODE_ACTION)
-            if response.status != 1:  # RAS_OK
-                raise RuntimeError(
-                    "KiCad could not enable 90-degree Line Mode "
-                    f"(RunAction status {response.status})"
-                )
-
             # InteractiveMoveItems adopts the open commit. Clicking commits both the
             # alignment and final move; Escape rolls both back as one operation.
-            self.board.interactive_move(item.id for item in moving_items)
+            self._interactive_move_on_axis(
+                [item.id for item in moving_items],
+                Axis.SAME_Y if axis is Axis.SAME_X else Axis.SAME_X,
+            )
         except Exception:
             self.board.drop_commit(commit)
             raise
+
+    def _interactive_move_on_axis(self, item_ids: Sequence[Any], movement_axis: Axis) -> None:
+        """Send KiCad's backwards-compatible axis field before kicad-python exposes it.
+
+        Field 3 is ``AxisAlignment`` in our KiCad API patch. Protobuf preserves this unknown
+        field when used with an older generated Python class, so the bridge can disappear once
+        the matching kicad-python release grows an ``axis_constraint`` argument.
+        """
+        command = board_commands_pb2.InteractiveMoveItems()
+        command.board.CopyFrom(self.board.document)
+        command.items.extend(item_ids)
+        wire_value = 1 if movement_axis is Axis.SAME_X else 2
+        command.MergeFromString(bytes((0x18, wire_value)))
+        self.board.client.send(command, Empty)
 
     @staticmethod
     def _is_translatable(item: BoardItem) -> bool:

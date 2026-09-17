@@ -1,7 +1,6 @@
 from __future__ import annotations
 
-import tkinter as tk
-from tkinter import messagebox
+import wx
 
 from .adapter import KiCadAdapter
 from .controller import MoveAlignedController
@@ -12,10 +11,9 @@ def main() -> None:
     try:
         controller = MoveAlignedController(KiCadAdapter())
     except Exception as exc:
-        root = tk.Tk()
-        root.withdraw()
-        messagebox.showerror("Move Aligned To", str(exc), parent=root)
-        root.destroy()
+        app = wx.App(False)
+        wx.MessageBox(str(exc), "Move Aligned To", wx.OK | wx.ICON_ERROR)
+        app.Destroy()
         raise SystemExit(1) from exc
 
     run_window(controller)

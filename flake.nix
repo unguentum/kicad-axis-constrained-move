@@ -4,9 +4,13 @@
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
     flake-utils.url = "github:numtide/flake-utils";
+    kicad-src = {
+      url = "github:unguentum/kicad-source-mirror/29d648080d9aa1085393d2bdc20c538af5c00e76";
+      flake = false;
+    };
   };
 
-  outputs = { self, nixpkgs, flake-utils }:
+  outputs = { self, nixpkgs, flake-utils, kicad-src }:
     flake-utils.lib.eachDefaultSystem (system:
       let
         pkgs = import nixpkgs { inherit system; };
@@ -18,10 +22,14 @@
           pynng
           pytest
           ruff
-          tkinter
           typing-extensions
+          wxpython
           zstandard
         ]);
+        patchedKiCad = pkgs.kicad.overrideAttrs (old: {
+          version = "10.99-axis-constrained-move";
+          src = kicad-src;
+        });
         plugin = pkgs.stdenvNoCC.mkDerivation {
           pname = "kicad-move-aligned-to";
           version = "0.1.0";
@@ -59,7 +67,10 @@
           '';
         };
       in {
-        packages.default = plugin;
+        packages = {
+          default = plugin;
+          patched-kicad = patchedKiCad;
+        };
 
         apps.install = {
           type = "app";
@@ -74,7 +85,7 @@
           packages = [
             pythonEnv
             pkgs.git
-            pkgs.kicad
+            patchedKiCad
             pkgs.scrot
             pkgs.xdotool
             pkgs.xvfb

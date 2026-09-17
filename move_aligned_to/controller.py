@@ -40,5 +40,5 @@ class MoveAlignedController:
         moving_bounds = aggregate_bounds(self.adapter.bounds_for(self.moving_items))
         reference_bounds = aggregate_bounds(self.adapter.bounds_for(references))
         dx, dy = alignment_delta(moving_bounds, reference_bounds, axis)
-        self.adapter.align_and_move(self.moving_items, dx, dy)
+        self.adapter.align_and_move(self.moving_items, dx, dy, axis)
         return len(references), dx, dy
