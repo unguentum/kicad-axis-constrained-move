@@ -120,13 +120,13 @@ class KiCadAdapter:
             # alignment and final move; Escape rolls both back as one operation.
             self._interactive_move_on_axis(
                 [item.id for item in moving_items],
-                Axis.SAME_Y if axis is Axis.SAME_X else Axis.SAME_X,
+                axis,
             )
         except Exception:
             self.board.drop_commit(commit)
             raise
 
-    def _interactive_move_on_axis(self, item_ids: Sequence[Any], movement_axis: Axis) -> None:
+    def _interactive_move_on_axis(self, item_ids: Sequence[Any], alignment_axis: Axis) -> None:
         """Send KiCad's backwards-compatible axis field before kicad-python exposes it.
 
         Field 3 is ``AxisAlignment`` in our KiCad API patch. Protobuf preserves this unknown
@@ -136,7 +136,7 @@ class KiCadAdapter:
         command = board_commands_pb2.InteractiveMoveItems()
         command.board.CopyFrom(self.board.document)
         command.items.extend(item_ids)
-        wire_value = 1 if movement_axis is Axis.SAME_X else 2
+        wire_value = alignment_axis.movement_axis_wire_value
         command.MergeFromString(bytes((0x18, wire_value)))
         self.board.client.send(command, Empty)
 

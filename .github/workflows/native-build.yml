@@ -33,3 +33,13 @@ jobs:
           test -x result/bin/kicad
           test -x result/bin/pcbnew
           file result/bin/kicad result/bin/pcbnew
+      - name: Capture KiCad workflow screenshots
+        run: nix develop -c bash scripts/capture_screenshots.sh
+      - name: Upload screenshots
+        uses: actions/upload-artifact@v4
+        with:
+          name: move-aligned-screenshots
+          path: |
+            screenshots/move-aligned-dialog.png
+            screenshots/axis-constrained-move.png
+          if-no-files-found: error

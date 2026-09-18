@@ -15,7 +15,7 @@ repository's Nix flake builds the matching patched KiCad revision.
 
 ![Move Aligned To dialog over the KiCad PCB Editor](screenshots/move-aligned-dialog.png)
 
-![Example board with moving and reference selections](screenshots/kicad-editor.png)
+![Native KiCad Move constrained to the alignment axis](screenshots/axis-constrained-move.png)
 
 ## Workflow
 

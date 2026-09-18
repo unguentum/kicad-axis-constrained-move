@@ -42,7 +42,7 @@ def test_translates_board_shape_with_native_move():
     assert (item.end.x, item.end.y) == (15, 17)
 
 
-def test_axis_constraint_is_encoded_for_patched_kicad_api():
+def encoded_axis_constraint(axis):
     sent = []
 
     class Client:
@@ -55,7 +55,14 @@ def test_axis_constraint_is_encoded_for_patched_kicad_api():
 
     adapter = KiCadAdapter.__new__(KiCadAdapter)
     adapter.board = Board()
-    adapter._interactive_move_on_axis([], Axis.SAME_Y)
+    adapter._interactive_move_on_axis([], axis)
 
-    payload = sent[0][0].SerializeToString()
-    assert payload.endswith(b"\x18\x02")
+    return sent[0][0].SerializeToString()
+
+
+def test_same_x_leaves_vertical_y_axis_movement():
+    assert encoded_axis_constraint(Axis.SAME_X).endswith(b"\x18\x02")
+
+
+def test_same_y_leaves_horizontal_x_axis_movement():
+    assert encoded_axis_constraint(Axis.SAME_Y).endswith(b"\x18\x01")
