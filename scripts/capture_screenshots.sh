@@ -81,8 +81,8 @@ if [[ "$api_ready" != true ]]; then
 fi
 
 # Select both footprints in the moving set.
-xdotool mousemove 480 345 click 1
-xdotool keydown ctrl mousemove 558 345 click 1 keyup ctrl
+xdotool mousemove 636 435 click 1
+xdotool keydown ctrl mousemove 718 435 click 1 keyup ctrl
 sleep 1
 
 python main.py &
@@ -94,7 +94,7 @@ for _ in $(seq 1 30); do
 done
 test -n "${plugin_window:-}"
 eval "$(xdotool getwindowgeometry --shell "$plugin_window")"
-if [[ "$WIDTH" -lt 520 ]]; then
+if [[ "$WIDTH" -lt 520 || "$HEIGHT" -lt 300 ]]; then
   scrot screenshots/startup-debug.png
   exit 1
 fi
@@ -102,8 +102,8 @@ xdotool windowmove "$plugin_window" 18 175
 
 # Select both reference footprints while the companion window remains open.
 xdotool windowfocus "$pcb_window"
-xdotool mousemove 745 452 click 1
-xdotool keydown ctrl mousemove 852 452 click 1 keyup ctrl
+xdotool mousemove 905 543 click 1
+xdotool keydown ctrl mousemove 1012 543 click 1 keyup ctrl
 sleep 2
 scrot screenshots/move-aligned-dialog.png
 
@@ -111,7 +111,7 @@ scrot screenshots/move-aligned-dialog.png
 xdotool windowfocus "$plugin_window"
 xdotool key Return
 sleep 2
-xdotool mousemove 745 560
+xdotool mousemove 905 650
 sleep 1
 scrot screenshots/axis-constrained-move.png
 xdotool key Escape
