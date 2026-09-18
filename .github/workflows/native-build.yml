@@ -1,4 +1,4 @@
-name: Native KiCad build
+name: Move Aligned To integration
 
 on:
   push:
@@ -10,7 +10,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  group: native-fast-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
