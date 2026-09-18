@@ -11,6 +11,7 @@ export XDG_DATA_HOME="$RUNNER_TEMP/kicad-data"
 mkdir -p "$XDG_CONFIG_HOME/kicad/10.0" "$XDG_CONFIG_HOME/kicad/10.99"
 cp scripts/kicad_common.json "$XDG_CONFIG_HOME/kicad/10.0/kicad_common.json"
 cp scripts/kicad_common.json "$XDG_CONFIG_HOME/kicad/10.99/kicad_common.json"
+rm -f screenshots/move-aligned-dialog.png screenshots/axis-constrained-move.png
 
 Xvfb "$DISPLAY" -screen 0 1600x900x24 -ac -nolisten tcp &
 xvfb_pid=$!
@@ -35,7 +36,7 @@ for _ in $(seq 1 60); do
       pcb_window=$window
     else
       blocked=true
-      xdotool key --window "$window" Return || true
+      xdotool key --window "$window" Escape || true
     fi
   done
   test -n "$pcb_window" && test "$blocked" = false && break
