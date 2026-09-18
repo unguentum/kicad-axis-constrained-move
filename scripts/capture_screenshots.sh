@@ -48,6 +48,18 @@ xdotool windowsize "$pcb_window" 1600 900
 xdotool windowmove "$pcb_window" 0 0
 xdotool windowfocus "$pcb_window"
 
+# The editor window appears before the board API handler is ready. Probe the
+# same IPC call the plugin makes so a fast runner cannot race PCB Editor startup.
+api_ready=false
+for _ in $(seq 1 60); do
+  if python -c 'from kipy import KiCad; KiCad().get_board()' >/dev/null 2>&1; then
+    api_ready=true
+    break
+  fi
+  sleep 1
+done
+test "$api_ready" = true
+
 # Select both footprints in the moving set.
 xdotool mousemove 480 345 click 1
 xdotool keydown ctrl mousemove 558 345 click 1 keyup ctrl
