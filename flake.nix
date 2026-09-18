@@ -1,5 +1,5 @@
 {
-  description = "Development and test environment for the KiCad Move Aligned To plugin";
+  description = "Patched KiCad with the Move Aligned To plugin";
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
@@ -11,9 +11,51 @@
   };
 
   outputs = { self, nixpkgs, flake-utils, kicad-src }:
-    flake-utils.lib.eachDefaultSystem (system:
+    let
+      overlay = final: prev:
+        let
+          plugin = final.kicad-unstable.callPackage
+            ({ stdenvNoCC, zip, addonPath, python3 }:
+              stdenvNoCC.mkDerivation {
+                pname = "kicad-addon-move-aligned-to";
+                version = "0.1.0";
+                src = self;
+                nativeBuildInputs = [ zip ];
+                dontConfigure = true;
+                dontBuild = true;
+                installPhase = ''
+                  runHook preInstall
+                  identifier=com.github.unguentum.kicad-move-aligned-to
+                  mkdir -p package/plugins/$identifier $out
+                  cp plugin.json requirements.txt main.py package/plugins/$identifier/
+                  cp -r move_aligned_to package/plugins/$identifier/
+                  printf '{"identifier":"%s"}\n' "$identifier" > package/metadata.json
+                  (cd package && zip -qr "$out/$addonPath" .)
+                  runHook postInstall
+                '';
+              }) { };
+
+          kicadWithPlugin = prev.kicad-unstable.override {
+            addons = [ plugin ];
+            srcs = {
+              kicad = kicad-src;
+              kicadVersion = "10.99-axis-constrained-move";
+            };
+          };
+        in {
+          kicad-axis-constrained-move-addon = plugin;
+          kicad-axis-constrained-move = kicadWithPlugin;
+        };
+    in
+    {
+      overlays.default = overlay;
+    }
+    // flake-utils.lib.eachDefaultSystem (system:
       let
-        pkgs = import nixpkgs { inherit system; };
+        pkgs = import nixpkgs {
+          inherit system;
+          overlays = [ overlay ];
+        };
         python = pkgs.python312;
         pythonEnv = python.withPackages (ps: with ps; [
           jsonschema
@@ -36,36 +78,7 @@
           typing-extensions
           zstandard
         ]);
-        patchedKiCad = pkgs.kicad.overrideAttrs (old: {
-          version = "10.99-axis-constrained-move";
-          src = kicad-src;
-        });
-        plugin = pkgs.stdenvNoCC.mkDerivation {
-          pname = "kicad-move-aligned-to";
-          version = "0.1.0";
-          src = self;
-          installPhase = ''
-            runHook preInstall
-            target="$out/share/kicad/plugins/com.github.unguentum.kicad-move-aligned-to"
-            mkdir -p "$target"
-            cp plugin.json requirements.txt main.py "$target/"
-            cp -r move_aligned_to "$target/"
-            runHook postInstall
-          '';
-        };
-        installScript = pkgs.writeShellApplication {
-          name = "install-plugin";
-          runtimeInputs = [ pkgs.coreutils ];
-          text = ''
-            version="''${KICAD_VERSION:-10.0}"
-            destination="''${XDG_DATA_HOME:-$HOME/.local/share}/KiCad/$version/plugins/com.github.unguentum.kicad-move-aligned-to"
-            mkdir -p "$(dirname "$destination")"
-            rm -rf "$destination"
-            cp -r ${plugin}/share/kicad/plugins/com.github.unguentum.kicad-move-aligned-to "$destination"
-            chmod -R u+w "$destination"
-            echo "Installed Move Aligned To at $destination"
-          '';
-        };
+        patchedKiCad = pkgs.kicad-axis-constrained-move;
         testScript = pkgs.writeShellApplication {
           name = "test-plugin";
           runtimeInputs = [ testPythonEnv ];
@@ -78,13 +91,14 @@
         };
       in {
         packages = {
-          default = plugin;
+          default = patchedKiCad;
           patched-kicad = patchedKiCad;
+          plugin = pkgs.kicad-axis-constrained-move-addon;
         };
 
-        apps.install = {
+        apps.default = {
           type = "app";
-          program = "${installScript}/bin/install-plugin";
+          program = "${patchedKiCad}/bin/kicad";
         };
         apps.test = {
           type = "app";
@@ -102,7 +116,7 @@
           ];
           shellHook = ''
             export PYTHONPATH="$PWD:$PYTHONPATH"
-            echo "Move Aligned To: pytest | ruff check . | nix run .#install"
+            echo "Move Aligned To: pytest | ruff check . | nix run .#test"
           '';
         };
       });
