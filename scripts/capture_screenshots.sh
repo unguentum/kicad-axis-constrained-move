@@ -110,8 +110,11 @@ scrot screenshots/move-aligned-dialog.png
 # Same X is the default: align centres on X and leave vertical movement free.
 xdotool windowfocus "$plugin_window"
 xdotool key Return
-sleep 2
-xdotool mousemove 905 650
+sleep 3
+xdotool windowfocus "$pcb_window"
+xdotool mousemove --sync 905 650
 sleep 1
+xdotool mousemove --sync 905 650
+sleep 2
 scrot screenshots/axis-constrained-move.png
 xdotool key Escape
