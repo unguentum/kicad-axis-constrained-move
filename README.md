@@ -96,9 +96,9 @@ If Home Manager owns your package list, apply the same overlay through `nixpkgs.
 
 ### Why this is packaged this way
 
-nixpkgs already has declarative KiCad add-on infrastructure: `pkgs.kicad.override { addons = [ ... ]; }`. This flake uses that mechanism, packaging the plugin in KiCad's expected `share/kicad/scripting/plugins` tree and adding its Python path to the wrapped KiCad process. It also uses the supported `kicad-unstable.override { srcs = { ... }; }` interface to build the patched source fork.
+nixpkgs already has declarative KiCad add-on infrastructure: `pkgs.kicad.override { addons = [ ... ]; }`. This flake uses that mechanism, packaging the plugin in KiCad's expected `share/kicad/scripting/plugins` tree and adding its Python path to the wrapped KiCad process. It applies [`patches/0001-Expose-axis-constrained-interactive-move-over-IPC.patch`](patches/0001-Expose-axis-constrained-interactive-move-over-IPC.patch) to nixpkgs's pinned KiCad source and passes that result through the supported `kicad-unstable.override { srcs = { ... }; }` interface.
 
-The patched source is pinned to [`unguentum/kicad-source-mirror@29d6480`](https://github.com/unguentum/kicad-source-mirror/commit/29d648080d9aa1085393d2bdc20c538af5c00e76), so the native IPC API and plugin stay in sync.
+There is no dependency on a KiCad source fork. The flake lock pins nixpkgs—and therefore the compatible upstream KiCad source—while the patch and plugin live together in this repository. Updating nixpkgs deliberately fails during the patch phase if upstream changes make the patch incompatible.
 
 ## Requirements
 
