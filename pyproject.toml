@@ -11,6 +11,9 @@ dev = ["pytest>=8", "ruff>=0.8"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 
+[tool.setuptools]
+packages = ["move_aligned_to"]
+
 [tool.ruff]
 line-length = 99
 target-version = "py310"
