@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
-set -euo pipefail
+set -euxo pipefail
 
 export DISPLAY=:99
+export LIBGL_ALWAYS_SOFTWARE=1
+export GALLIUM_DRIVER=llvmpipe
 export XDG_CONFIG_HOME="$RUNNER_TEMP/kicad-config"
 export XDG_CACHE_HOME="$RUNNER_TEMP/kicad-cache"
 export XDG_DATA_HOME="$RUNNER_TEMP/kicad-data"
@@ -24,17 +26,22 @@ trap cleanup EXIT
 pcbnew examples/alignment-demo.kicad_pcb &
 pcbnew_pid=$!
 
+pcb_window=
 for _ in $(seq 1 60); do
-  pcb_window=$(xdotool search --onlyvisible --name "PCB Editor" 2>/dev/null | head -1 || true)
-  test -n "$pcb_window" && break
+  blocked=false
+  for window in $(xdotool search --onlyvisible --pid "$pcbnew_pid" 2>/dev/null || true); do
+    name=$(xdotool getwindowname "$window" 2>/dev/null || true)
+    if [[ "$name" == *"PCB Editor"* ]]; then
+      pcb_window=$window
+    else
+      blocked=true
+      xdotool windowactivate "$window" key Return || true
+    fi
+  done
+  test -n "$pcb_window" && test "$blocked" = false && break
   sleep 1
 done
 test -n "${pcb_window:-}"
-xdotool windowactivate "$pcb_window"
-xdotool key Return
-sleep 2
-xdotool windowactivate "$pcb_window"
-xdotool key Return
 sleep 3
 xdotool windowsize "$pcb_window" 1600 900
 xdotool windowmove "$pcb_window" 0 0
