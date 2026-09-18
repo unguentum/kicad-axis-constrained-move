@@ -30,7 +30,7 @@
                   cp plugin.json requirements.txt main.py package/plugins/$identifier/
                   cp -r move_aligned_to package/plugins/$identifier/
                   printf '{"identifier":"%s"}\n' "$identifier" > package/metadata.json
-                  (cd package && zip -qr "$out/$addonPath" .)
+                  (cd package && zip -qr "$out/${addonPath}" .)
                   runHook postInstall
                 '';
               }) { };
