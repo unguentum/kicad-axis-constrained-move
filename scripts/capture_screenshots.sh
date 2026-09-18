@@ -44,6 +44,9 @@ for _ in $(seq 1 60); do
     name=$(xdotool getwindowname "$window" 2>/dev/null || true)
     if [[ "$name" == *"PCB Editor"* ]]; then
       pcb_window=$window
+    elif [[ "$name" == "KiCad Setup" ]]; then
+      blocked=true
+      xdotool key --window "$window" Return || true
     else
       blocked=true
       xdotool key --window "$window" Escape || true
