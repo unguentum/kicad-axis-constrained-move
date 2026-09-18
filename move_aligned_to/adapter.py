@@ -5,8 +5,7 @@ from collections.abc import Iterable, Sequence
 from typing import Any
 
 from google.protobuf.empty_pb2 import Empty
-from kipy import KiCad
-from kipy import board_types
+from kipy import KiCad, board_types
 from kipy.geometry import Vector2
 from kipy.proto.board import board_commands_pb2
 
