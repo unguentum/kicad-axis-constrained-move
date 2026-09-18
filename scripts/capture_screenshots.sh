@@ -24,6 +24,16 @@ cleanup() {
 }
 trap cleanup EXIT
 
+display_ready=false
+for _ in $(seq 1 30); do
+  if xdotool getmouselocation >/dev/null 2>&1; then
+    display_ready=true
+    break
+  fi
+  sleep 0.2
+done
+test "$display_ready" = true
+
 pcbnew examples/alignment-demo.kicad_pcb &
 pcbnew_pid=$!
 
