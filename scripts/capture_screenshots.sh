@@ -46,10 +46,10 @@ for _ in $(seq 1 60); do
       pcb_window=$window
     elif [[ "$name" == "KiCad Setup" ]]; then
       blocked=true
-      xdotool key --window "$window" Return || true
+      xdotool windowfocus "$window" key Return || true
     else
       blocked=true
-      xdotool key --window "$window" Escape || true
+      xdotool windowfocus "$window" key Escape || true
     fi
   done
   test -n "$pcb_window" && test "$blocked" = false && break
@@ -71,7 +71,7 @@ for _ in $(seq 1 60); do
   fi
   sleep 1
 done
-test "$api_ready" = true
+# Save visual evidence instead of failing blind if KiCad changes startup UI.\nif [[ "$api_ready" != true ]]; then\n  scrot screenshots/startup-debug.png\n  exit 1\nfi
 
 # Select both footprints in the moving set.
 xdotool mousemove 480 345 click 1
