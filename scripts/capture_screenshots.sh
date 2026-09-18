@@ -4,6 +4,7 @@ set -euxo pipefail
 export DISPLAY=:99
 export LIBGL_ALWAYS_SOFTWARE=1
 export GALLIUM_DRIVER=llvmpipe
+export BROWSER=/bin/true
 export XDG_CONFIG_HOME="$RUNNER_TEMP/kicad-config"
 export XDG_CACHE_HOME="$RUNNER_TEMP/kicad-cache"
 export XDG_DATA_HOME="$RUNNER_TEMP/kicad-data"
@@ -46,7 +47,10 @@ for _ in $(seq 1 60); do
       pcb_window=$window
     elif [[ "$name" == "KiCad Setup" ]]; then
       blocked=true
-      xdotool windowfocus "$window" key Return || true
+      # Advance the wizard by mnemonic; Return can activate its documentation link.
+      xdotool key --window "$window" alt+n || true
+      sleep 0.2
+      xdotool key --window "$window" alt+f || true
     else
       blocked=true
       xdotool windowfocus "$window" key Escape || true
