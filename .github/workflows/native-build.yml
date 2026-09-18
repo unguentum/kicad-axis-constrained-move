@@ -34,7 +34,14 @@ jobs:
           test -x result/bin/pcbnew
           file result/bin/kicad result/bin/pcbnew
       - name: Capture KiCad workflow screenshots
-        run: nix develop -c bash scripts/capture_screenshots.sh
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends \
+            python3-venv python3-wxgtk4.0 scrot xdotool xvfb
+          python3 -m venv --system-site-packages .screenshot-venv
+          .screenshot-venv/bin/pip install -q "kicad-python>=0.7.0,<0.10"
+          PATH="$PWD/result/bin:$PWD/.screenshot-venv/bin:$PATH" \
+            bash scripts/capture_screenshots.sh
       - name: Upload screenshots
         uses: actions/upload-artifact@v4
         with:
