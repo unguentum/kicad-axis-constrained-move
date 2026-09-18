@@ -35,7 +35,7 @@ for _ in $(seq 1 60); do
       pcb_window=$window
     else
       blocked=true
-      xdotool windowactivate "$window" key Return || true
+      xdotool key --window "$window" Return || true
     fi
   done
   test -n "$pcb_window" && test "$blocked" = false && break
@@ -45,7 +45,7 @@ test -n "${pcb_window:-}"
 sleep 3
 xdotool windowsize "$pcb_window" 1600 900
 xdotool windowmove "$pcb_window" 0 0
-xdotool windowactivate "$pcb_window"
+xdotool windowfocus "$pcb_window"
 
 # Select both footprints in the moving set.
 xdotool mousemove 480 345 click 1
@@ -63,14 +63,14 @@ test -n "${plugin_window:-}"
 xdotool windowmove "$plugin_window" 18 175
 
 # Select both reference footprints while the companion window remains open.
-xdotool windowactivate "$pcb_window"
+xdotool windowfocus "$pcb_window"
 xdotool mousemove 745 452 click 1
 xdotool keydown ctrl mousemove 852 452 click 1 keyup ctrl
 sleep 2
 scrot screenshots/move-aligned-dialog.png
 
 # Same X is the default: align centres on X and leave vertical movement free.
-xdotool windowactivate "$plugin_window"
+xdotool windowfocus "$plugin_window"
 xdotool key Return
 sleep 2
 xdotool mousemove 745 560
