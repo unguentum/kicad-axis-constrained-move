@@ -61,7 +61,7 @@ xdotool windowsize "$pcb_window" 1600 900
 xdotool windowmove "$pcb_window" 0 0
 xdotool windowfocus "$pcb_window"
 
-# The editor window appears before the board API handler is ready. Probe the
+# The editor window appears before the board API handler is ready.  Probe the
 # same IPC call the plugin makes so a fast runner cannot race PCB Editor startup.
 api_ready=false
 for _ in $(seq 1 60); do
@@ -71,7 +71,10 @@ for _ in $(seq 1 60); do
   fi
   sleep 1
 done
-# Save visual evidence instead of failing blind if KiCad changes startup UI.\nif [[ "$api_ready" != true ]]; then\n  scrot screenshots/startup-debug.png\n  exit 1\nfi
+if [[ "$api_ready" != true ]]; then
+  scrot screenshots/startup-debug.png
+  exit 1
+fi
 
 # Select both footprints in the moving set.
 xdotool mousemove 480 345 click 1
@@ -86,6 +89,8 @@ for _ in $(seq 1 30); do
   sleep 1
 done
 test -n "${plugin_window:-}"
+eval "$(xdotool getwindowgeometry --shell "$plugin_window")"
+test "$WIDTH" -ge 520
 xdotool windowmove "$plugin_window" 18 175
 
 # Select both reference footprints while the companion window remains open.

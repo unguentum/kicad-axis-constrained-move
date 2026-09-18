@@ -2,12 +2,34 @@ from kipy.board_types import BoardSegment, FootprintInstance, Track, Via
 from kipy.geometry import Vector2
 from kipy.proto.board import board_commands_pb2
 
+from move_aligned_to import adapter as adapter_module
 from move_aligned_to.adapter import KiCadAdapter
 from move_aligned_to.model import Axis
 
 
 def point(x, y):
     return Vector2.from_xy(x, y)
+
+
+def test_connection_retries_transient_not_ready(monkeypatch):
+    board = object()
+
+    class FakeKiCad:
+        attempts = 0
+
+        def get_board(self):
+            self.attempts += 1
+            if self.attempts < 3:
+                raise RuntimeError("KiCad is not ready to reply")
+            return board
+
+    monkeypatch.setattr(adapter_module, "KiCad", FakeKiCad)
+    monkeypatch.setattr(adapter_module.time, "sleep", lambda _seconds: None)
+
+    adapter = KiCadAdapter()
+
+    assert adapter.board is board
+    assert adapter.kicad.attempts == 3
 
 
 def test_translates_footprint_by_position():

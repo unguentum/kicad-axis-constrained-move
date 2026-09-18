@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import time
 from collections.abc import Iterable, Sequence
 from typing import Any
 
@@ -17,9 +18,19 @@ class UnsupportedItemError(RuntimeError):
 
 
 class KiCadAdapter:
+    CONNECT_ATTEMPTS = 20
+    CONNECT_RETRY_SECONDS = 0.25
+
     def __init__(self) -> None:
         self.kicad = KiCad()
-        self.board = self.kicad.get_board()
+        for attempt in range(self.CONNECT_ATTEMPTS):
+            try:
+                self.board = self.kicad.get_board()
+                break
+            except RuntimeError:
+                if attempt + 1 == self.CONNECT_ATTEMPTS:
+                    raise
+                time.sleep(self.CONNECT_RETRY_SECONDS)
 
     def selection(self) -> list[BoardItem]:
         return list(self.board.get_selection())
