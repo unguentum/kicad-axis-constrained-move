@@ -4,13 +4,9 @@
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
     flake-utils.url = "github:numtide/flake-utils";
-    kicad-src = {
-      url = "github:unguentum/kicad-source-mirror/29d648080d9aa1085393d2bdc20c538af5c00e76";
-      flake = false;
-    };
   };
 
-  outputs = { self, nixpkgs, flake-utils, kicad-src }:
+  outputs = { self, nixpkgs, flake-utils }:
     let
       overlay = final: prev:
         let
@@ -35,10 +31,16 @@
                 '';
               }) { };
 
+          patchedSource = final.applyPatches {
+            name = "kicad-axis-constrained-move-source";
+            src = prev.kicad-unstable.base.src;
+            patches = [ ./patches/0001-Expose-axis-constrained-interactive-move-over-IPC.patch ];
+          };
+
           kicadWithPlugin = prev.kicad-unstable.override {
             addons = [ plugin ];
             srcs = {
-              kicad = kicad-src;
+              kicad = patchedSource;
               kicadVersion = "10.99-axis-constrained-move";
             };
           };
