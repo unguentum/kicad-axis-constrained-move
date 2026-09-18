@@ -42,10 +42,12 @@ jobs:
           PATH="$PWD/result/bin:$PWD/.screenshot-venv/bin:$PATH" \
             bash scripts/capture_screenshots.sh
       - name: Upload screenshots
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: move-aligned-screenshots
           path: |
             screenshots/move-aligned-dialog.png
             screenshots/axis-constrained-move.png
-          if-no-files-found: error
+            screenshots/startup-debug.png
+          if-no-files-found: warn
