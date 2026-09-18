@@ -1,16 +1,36 @@
-name: Native KiCad build
+name: Move Aligned To integration
 
 on:
   push:
     branches: [main]
+    paths:
+      - "flake.*"
+      - "patches/**"
+      - "move_aligned_to/**"
+      - "scripts/**"
+      - "examples/**"
+      - "main.py"
+      - "plugin.json"
+      - "requirements.txt"
+      - ".github/workflows/native-build.yml"
   pull_request:
+    paths:
+      - "flake.*"
+      - "patches/**"
+      - "move_aligned_to/**"
+      - "scripts/**"
+      - "examples/**"
+      - "main.py"
+      - "plugin.json"
+      - "requirements.txt"
+      - ".github/workflows/native-build.yml"
   workflow_dispatch:
 
 permissions:
   contents: read
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  group: native-fast-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -25,7 +45,6 @@ jobs:
           sudo rm -rf /usr/local/lib/android /usr/share/dotnet /opt/ghc
           df -h /
       - uses: DeterminateSystems/nix-installer-action@v17
-      - uses: DeterminateSystems/magic-nix-cache-action@v13
       - name: Build patched KiCad
         run: nix build .#patched-kicad --print-build-logs --keep-going
       - name: Smoke-test executables
@@ -33,3 +52,22 @@ jobs:
           test -x result/bin/kicad
           test -x result/bin/pcbnew
           file result/bin/kicad result/bin/pcbnew
+      - name: Capture KiCad workflow screenshots
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends \
+            python3-venv python3-wxgtk4.0 scrot xdotool xvfb
+          python3 -m venv --system-site-packages .screenshot-venv
+          .screenshot-venv/bin/pip install -q "kicad-python>=0.7.0,<0.10"
+          PATH="$PWD/result/bin:$PWD/.screenshot-venv/bin:$PATH" \
+            bash scripts/capture_screenshots.sh
+      - name: Upload screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: move-aligned-screenshots
+          path: |
+            screenshots/move-aligned-dialog.png
+            screenshots/axis-constrained-move.png
+            screenshots/startup-debug.png
+          if-no-files-found: warn

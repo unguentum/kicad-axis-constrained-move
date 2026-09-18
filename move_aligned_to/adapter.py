@@ -1,15 +1,18 @@
 from __future__ import annotations
 
+import time
 from collections.abc import Iterable, Sequence
 from typing import Any
 
 from google.protobuf.empty_pb2 import Empty
-from kipy import KiCad
-from kipy.board_types import BoardItem, Group
+from kipy import KiCad, board_types
 from kipy.geometry import Vector2
 from kipy.proto.board import board_commands_pb2
 
 from .model import Axis, Bounds, stable_id
+
+BoardItem = board_types.BoardItem
+Group = getattr(board_types, "Group", ())
 
 
 class UnsupportedItemError(RuntimeError):
@@ -17,9 +20,19 @@ class UnsupportedItemError(RuntimeError):
 
 
 class KiCadAdapter:
+    CONNECT_ATTEMPTS = 20
+    CONNECT_RETRY_SECONDS = 0.25
+
     def __init__(self) -> None:
         self.kicad = KiCad()
-        self.board = self.kicad.get_board()
+        for attempt in range(self.CONNECT_ATTEMPTS):
+            try:
+                self.board = self.kicad.get_board()
+                break
+            except RuntimeError:
+                if attempt + 1 == self.CONNECT_ATTEMPTS:
+                    raise
+                time.sleep(self.CONNECT_RETRY_SECONDS)
 
     def selection(self) -> list[BoardItem]:
         return list(self.board.get_selection())
@@ -120,13 +133,13 @@ class KiCadAdapter:
             # alignment and final move; Escape rolls both back as one operation.
             self._interactive_move_on_axis(
                 [item.id for item in moving_items],
-                Axis.SAME_Y if axis is Axis.SAME_X else Axis.SAME_X,
+                axis,
             )
         except Exception:
             self.board.drop_commit(commit)
             raise
 
-    def _interactive_move_on_axis(self, item_ids: Sequence[Any], movement_axis: Axis) -> None:
+    def _interactive_move_on_axis(self, item_ids: Sequence[Any], alignment_axis: Axis) -> None:
         """Send KiCad's backwards-compatible axis field before kicad-python exposes it.
 
         Field 3 is ``AxisAlignment`` in our KiCad API patch. Protobuf preserves this unknown
@@ -136,7 +149,7 @@ class KiCadAdapter:
         command = board_commands_pb2.InteractiveMoveItems()
         command.board.CopyFrom(self.board.document)
         command.items.extend(item_ids)
-        wire_value = 1 if movement_axis is Axis.SAME_X else 2
+        wire_value = alignment_axis.movement_axis_wire_value
         command.MergeFromString(bytes((0x18, wire_value)))
         self.board.client.send(command, Empty)
 

@@ -18,6 +18,11 @@ class Axis(str, Enum):
     def movement_description(self) -> str:
         return "vertical" if self is Axis.SAME_X else "horizontal"
 
+    @property
+    def movement_axis_wire_value(self) -> int:
+        """KiCad AxisAlignment value for the direction left free after alignment."""
+        return 2 if self is Axis.SAME_X else 1
+
 
 @dataclass(frozen=True)
 class Bounds:
