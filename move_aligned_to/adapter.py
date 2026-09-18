@@ -6,11 +6,14 @@ from typing import Any
 
 from google.protobuf.empty_pb2 import Empty
 from kipy import KiCad
-from kipy.board_types import BoardItem, Group
+from kipy import board_types
 from kipy.geometry import Vector2
 from kipy.proto.board import board_commands_pb2
 
 from .model import Axis, Bounds, stable_id
+
+BoardItem = board_types.BoardItem
+Group = getattr(board_types, "Group", ())
 
 
 class UnsupportedItemError(RuntimeError):

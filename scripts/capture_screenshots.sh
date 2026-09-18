@@ -90,7 +90,10 @@ for _ in $(seq 1 30); do
 done
 test -n "${plugin_window:-}"
 eval "$(xdotool getwindowgeometry --shell "$plugin_window")"
-test "$WIDTH" -ge 520
+if [[ "$WIDTH" -lt 520 ]]; then
+  scrot screenshots/startup-debug.png
+  exit 1
+fi
 xdotool windowmove "$plugin_window" 18 175
 
 # Select both reference footprints while the companion window remains open.
