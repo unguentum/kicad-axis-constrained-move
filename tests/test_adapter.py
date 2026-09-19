@@ -64,7 +64,7 @@ def test_translates_board_shape_with_native_move():
     assert (item.end.x, item.end.y) == (15, 17)
 
 
-def encoded_axis_constraint(axis):
+def encoded_movement_axis(axis):
     sent = []
 
     class Client:
@@ -83,8 +83,8 @@ def encoded_axis_constraint(axis):
 
 
 def test_same_x_leaves_vertical_y_axis_movement():
-    assert encoded_axis_constraint(Axis.SAME_X).endswith(b"\x18\x02")
+    assert encoded_movement_axis(Axis.SAME_X).endswith(b"\x18\x02")
 
 
 def test_same_y_leaves_horizontal_x_axis_movement():
-    assert encoded_axis_constraint(Axis.SAME_Y).endswith(b"\x18\x01")
+    assert encoded_movement_axis(Axis.SAME_Y).endswith(b"\x18\x01")
