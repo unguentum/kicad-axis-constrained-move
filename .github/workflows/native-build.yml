@@ -1,8 +1,6 @@
 name: Move Aligned To integration
 
 on:
-  push:
-    branches: [main]
   workflow_dispatch:
 
 permissions:
