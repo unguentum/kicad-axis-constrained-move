@@ -1,36 +1,13 @@
 name: Move Aligned To integration
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - "flake.*"
-      - "patches/**"
-      - "move_aligned_to/**"
-      - "scripts/**"
-      - "examples/**"
-      - "main.py"
-      - "plugin.json"
-      - "requirements.txt"
-      - ".github/workflows/native-build.yml"
-  pull_request:
-    paths:
-      - "flake.*"
-      - "patches/**"
-      - "move_aligned_to/**"
-      - "scripts/**"
-      - "examples/**"
-      - "main.py"
-      - "plugin.json"
-      - "requirements.txt"
-      - ".github/workflows/native-build.yml"
   workflow_dispatch:
 
 permissions:
   contents: read
 
 concurrency:
-  group: native-fast-${{ github.ref }}
+  group: native-integration-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
