@@ -70,4 +70,5 @@ jobs:
             screenshots/move-aligned-dialog.png
             screenshots/axis-constrained-move.png
             screenshots/startup-debug.png
+            screenshots/plugin-manager.log
           if-no-files-found: warn
