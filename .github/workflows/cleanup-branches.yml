@@ -1,0 +1,31 @@
+name: One-shot branch cleanup
+
+on:
+  push:
+    paths:
+      - ".github/workflows/cleanup-branches.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Delete merged branches
+        run: |
+          git push origin --delete \
+            ci/native-build-validation \
+            finish-move-aligned \
+            nix-native-install \
+            test-packaged-plugin-discovery
+      - name: Remove this one-shot workflow
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git rm .github/workflows/cleanup-branches.yml
+          git commit -m "Remove completed branch cleanup workflow"
+          git push origin HEAD:main
