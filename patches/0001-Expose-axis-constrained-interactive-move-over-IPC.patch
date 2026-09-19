@@ -81,14 +81,14 @@ diff --git a/pcbnew/tools/edit_tool.cpp b/pcbnew/tools/edit_tool.cpp
 index 7fa69c43..d5402771 100644
 --- a/pcbnew/tools/edit_tool.cpp
 +++ b/pcbnew/tools/edit_tool.cpp
-@@ -4069,6 +4069,7 @@ void EDIT_TOOL::setTransitions()
+@@ -3883,6 +3883,7 @@ void EDIT_TOOL::setTransitions()
  {
-     Go( &EDIT_TOOL::GetAndPlace,              PCB_ACTIONS::getAndPlace.MakeEvent() );
-     Go( &EDIT_TOOL::Move,                     PCB_ACTIONS::move.MakeEvent() );
-+    Go( &EDIT_TOOL::Move,                     PCB_ACTIONS::moveConstrained.MakeEvent() );
-     Go( &EDIT_TOOL::Move,                     PCB_ACTIONS::moveIndividually.MakeEvent() );
-     Go( &EDIT_TOOL::Drag,                     PCB_ACTIONS::drag45Degree.MakeEvent() );
-     Go( &EDIT_TOOL::Drag,                     PCB_ACTIONS::dragFreeAngle.MakeEvent() );
+     Go( &EDIT_TOOL::GetAndPlace,           PCB_ACTIONS::getAndPlace.MakeEvent() );
+     Go( &EDIT_TOOL::Move,                  PCB_ACTIONS::move.MakeEvent() );
++    Go( &EDIT_TOOL::Move,                  PCB_ACTIONS::moveConstrained.MakeEvent() );
+     Go( &EDIT_TOOL::Move,                  PCB_ACTIONS::moveIndividually.MakeEvent() );
+     Go( &EDIT_TOOL::Drag,                  PCB_ACTIONS::drag45Degree.MakeEvent() );
+     Go( &EDIT_TOOL::Drag,                  PCB_ACTIONS::dragFreeAngle.MakeEvent() );
 diff --git a/pcbnew/tools/edit_tool_move_fct.cpp b/pcbnew/tools/edit_tool_move_fct.cpp
 index ed0754f1..c7dc6632 100644
 --- a/pcbnew/tools/edit_tool_move_fct.cpp
@@ -246,4 +246,3 @@ index cc2132b2..86d9af38 100644
  
 -- 
 2.51.1
-
