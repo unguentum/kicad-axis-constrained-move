@@ -144,7 +144,7 @@ class KiCadAdapter:
 
         Field 3 is ``AxisAlignment`` in our KiCad API patch. Protobuf preserves this unknown
         field when used with an older generated Python class, so the bridge can disappear once
-        the matching kicad-python release grows an ``axis_constraint`` argument.
+        the matching kicad-python release grows a ``movement_axis`` argument.
         """
         command = board_commands_pb2.InteractiveMoveItems()
         command.board.CopyFrom(self.board.document)
