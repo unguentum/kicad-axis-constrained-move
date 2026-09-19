@@ -133,6 +133,8 @@ nix run .#test
 
 The test board is [`examples/alignment-demo.kicad_pcb`](examples/alignment-demo.kicad_pcb).
 
+The ordinary CI workflow tests the Python logic and package on every change. The native integration workflow is intentionally manual because changing KiCad C++ sources requires a full KiCad build; it validates the patch, packaged-plugin discovery, real IPC startup, and both GUI screenshots. Nix reuses an existing matching store result locally, but this repository does not currently publish an external binary cache.
+
 ## Current scope
 
 The plugin starts KiCad's native **Move** operation. KiCad 10 does not expose a corresponding track-preserving `InteractiveDragItems` command through its stable IPC API, so connected-track dragging is not yet offered.

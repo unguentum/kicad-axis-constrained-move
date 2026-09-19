@@ -1,30 +1,34 @@
-From e06240eed58b2ef0de3ec3438797c91e5e14d696 Mon Sep 17 00:00:00 2001
+From 8f90264389889bab3e8aca04e996eee461f1895d Mon Sep 17 00:00:00 2001
 From: unguentum <witherbones1@gmail.com>
 Date: Thu, 17 Sep 2026 20:03:39 +1000
 Subject: [PATCH] Expose axis-constrained interactive move over IPC
 
+Allow InteractiveMoveItems callers to restrict native placement to horizontal or vertical movement. Reuse the editor snap-line and cursor-lock machinery so mouse and keyboard movement share the same fixed constraint while preserving the existing unconstrained default.
+
+Reject invalid movement-axis values before changing the current selection.
 ---
- api/proto/board/board_commands.proto |  4 +++
+ api/proto/board/board_commands.proto |  5 +++
  include/tool/tool_manager.h          |  8 +++++
- pcbnew/api/api_handler_board.cpp     | 21 +++++++++++-
+ pcbnew/api/api_handler_board.cpp     | 30 +++++++++++++++-
  pcbnew/tools/edit_tool.cpp           |  1 +
- pcbnew/tools/edit_tool_move_fct.cpp  | 48 ++++++++++++++++++++++------
+ pcbnew/tools/edit_tool_move_fct.cpp  | 51 ++++++++++++++++++++++------
  pcbnew/tools/pcb_actions.cpp         |  8 +++++
  pcbnew/tools/pcb_actions.h           | 10 ++++++
- 7 files changed, 90 insertions(+), 10 deletions(-)
+ 7 files changed, 102 insertions(+), 11 deletions(-)
 
 diff --git a/api/proto/board/board_commands.proto b/api/proto/board/board_commands.proto
-index 26f9d222..f7eb7c78 100644
+index 26f9d222..12a80c93 100644
 --- a/api/proto/board/board_commands.proto
 +++ b/api/proto/board/board_commands.proto
-@@ -638,4 +638,8 @@ message InteractiveMoveItems
+@@ -638,4 +638,9 @@ message InteractiveMoveItems
    kiapi.common.types.DocumentSpecifier board = 1;
  
    repeated kiapi.common.types.KIID items = 2;
 +
-+  // Optionally lock the interactive move to one axis.  The editor displays its native
-+  // snap guide along the requested axis.  AA_UNKNOWN preserves the traditional free move.
-+  kiapi.common.types.AxisAlignment axis_constraint = 3;
++  // Optionally restrict the interactive move to one axis.  AA_X_AXIS permits horizontal
++  // movement while preserving Y; AA_Y_AXIS permits vertical movement while preserving X.
++  // AA_UNKNOWN preserves the traditional unconstrained move.
++  kiapi.common.types.AxisAlignment movement_axis = 3;
  }
 diff --git a/include/tool/tool_manager.h b/include/tool/tool_manager.h
 index 58be3e28..b2ea397d 100644
@@ -46,18 +50,21 @@ index 58be3e28..b2ea397d 100644
       * Send a cancel event to the tool currently at the top of the tool stack.
       */
 diff --git a/pcbnew/api/api_handler_board.cpp b/pcbnew/api/api_handler_board.cpp
-index 7fd66d93..1ac4e239 100644
+index 7fd66d93..9b836ba6 100644
 --- a/pcbnew/api/api_handler_board.cpp
 +++ b/pcbnew/api/api_handler_board.cpp
-@@ -1003,7 +1003,26 @@ HANDLER_RESULT<Empty> API_HANDLER_BOARD::handleInteractiveMoveItems(
-     mgr->RunAction<EDA_ITEMS*>( ACTIONS::selectItems, &toSelect );
+@@ -978,6 +978,31 @@ HANDLER_RESULT<Empty> API_HANDLER_BOARD::handleInteractiveMoveItems(
+     if( !documentValidation )
+         return tl::unexpected( documentValidation.error() );
  
-     COMMIT* commit = getCurrentCommit( aCtx.ClientName );
--    mgr->PostAPIAction( PCB_ACTIONS::move, commit );
-+    MOVE_AXIS_CONSTRAINT axisConstraint = MOVE_AXIS_CONSTRAINT::NONE;
++    MOVE_AXIS_CONSTRAINT axisConstraint;
 +
-+    switch( aCtx.Request.axis_constraint() )
++    switch( aCtx.Request.movement_axis() )
 +    {
++    case kiapi::common::types::AA_UNKNOWN:
++        axisConstraint = MOVE_AXIS_CONSTRAINT::NONE;
++        break;
++
 +    case kiapi::common::types::AA_X_AXIS:
 +        axisConstraint = MOVE_AXIS_CONSTRAINT::HORIZONTAL;
 +        break;
@@ -67,9 +74,22 @@ index 7fd66d93..1ac4e239 100644
 +        break;
 +
 +    default:
-+        break;
++    {
++        ApiResponseStatus e;
++        e.set_status( ApiStatusCode::AS_BAD_REQUEST );
++        e.set_error_message( "Invalid movement axis" );
++        return tl::unexpected( e );
++    }
 +    }
 +
+     TOOL_MANAGER* mgr = toolManager();
+     std::vector<EDA_ITEM*> toSelect;
+ 
+@@ -1003,7 +1028,10 @@ HANDLER_RESULT<Empty> API_HANDLER_BOARD::handleInteractiveMoveItems(
+     mgr->RunAction<EDA_ITEMS*>( ACTIONS::selectItems, &toSelect );
+ 
+     COMMIT* commit = getCurrentCommit( aCtx.ClientName );
+-    mgr->PostAPIAction( PCB_ACTIONS::move, commit );
 +    if( axisConstraint == MOVE_AXIS_CONSTRAINT::NONE )
 +        mgr->PostAPIAction( PCB_ACTIONS::move, commit );
 +    else
@@ -81,16 +101,16 @@ diff --git a/pcbnew/tools/edit_tool.cpp b/pcbnew/tools/edit_tool.cpp
 index 7fa69c43..d5402771 100644
 --- a/pcbnew/tools/edit_tool.cpp
 +++ b/pcbnew/tools/edit_tool.cpp
-@@ -3883,6 +3883,7 @@ void EDIT_TOOL::setTransitions()
+@@ -4069,6 +4069,7 @@ void EDIT_TOOL::setTransitions()
  {
-     Go( &EDIT_TOOL::GetAndPlace,           PCB_ACTIONS::getAndPlace.MakeEvent() );
-     Go( &EDIT_TOOL::Move,                  PCB_ACTIONS::move.MakeEvent() );
-+    Go( &EDIT_TOOL::Move,                  PCB_ACTIONS::moveConstrained.MakeEvent() );
-     Go( &EDIT_TOOL::Move,                  PCB_ACTIONS::moveIndividually.MakeEvent() );
-     Go( &EDIT_TOOL::Drag,                  PCB_ACTIONS::drag45Degree.MakeEvent() );
-     Go( &EDIT_TOOL::Drag,                  PCB_ACTIONS::dragFreeAngle.MakeEvent() );
+     Go( &EDIT_TOOL::GetAndPlace,              PCB_ACTIONS::getAndPlace.MakeEvent() );
+     Go( &EDIT_TOOL::Move,                     PCB_ACTIONS::move.MakeEvent() );
++    Go( &EDIT_TOOL::Move,                     PCB_ACTIONS::moveConstrained.MakeEvent() );
+     Go( &EDIT_TOOL::Move,                     PCB_ACTIONS::moveIndividually.MakeEvent() );
+     Go( &EDIT_TOOL::Drag,                     PCB_ACTIONS::drag45Degree.MakeEvent() );
+     Go( &EDIT_TOOL::Drag,                     PCB_ACTIONS::dragFreeAngle.MakeEvent() );
 diff --git a/pcbnew/tools/edit_tool_move_fct.cpp b/pcbnew/tools/edit_tool_move_fct.cpp
-index ed0754f1..c7dc6632 100644
+index ed0754f1..6b8994d2 100644
 --- a/pcbnew/tools/edit_tool_move_fct.cpp
 +++ b/pcbnew/tools/edit_tool_move_fct.cpp
 @@ -1113,6 +1113,10 @@ bool EDIT_TOOL::doMoveSelection( const TOOL_EVENT& aEvent, BOARD_COMMIT* aCommit
@@ -151,7 +171,17 @@ index ed0754f1..c7dc6632 100644
             || evt->IsMotion()
             || evt->IsDrag( BUT_LEFT )
             || evt->IsAction( &ACTIONS::refreshPreview )
-@@ -1523,7 +1547,8 @@ bool EDIT_TOOL::doMoveSelection( const TOOL_EVENT& aEvent, BOARD_COMMIT* aCommit
+@@ -1242,7 +1266,8 @@ bool EDIT_TOOL::doMoveSelection( const TOOL_EVENT& aEvent, BOARD_COMMIT* aCommit
+                     // Update axis lock based on arrow key press, but skip on refreshPreview
+                     // to avoid double-processing when CursorControl posts refreshPreview after
+                     // handling the arrow key.
+-                    if( !evt->IsAction( &ACTIONS::refreshPreview ) )
++                    if( apiAxisConstraint == MOVE_AXIS_CONSTRAINT::NONE
++                        && !evt->IsAction( &ACTIONS::refreshPreview ) )
+                     {
+                         long action = controls->GetSettings().m_lastKeyboardCursorCommand;
+ 
+@@ -1523,7 +1548,8 @@ bool EDIT_TOOL::doMoveSelection( const TOOL_EVENT& aEvent, BOARD_COMMIT* aCommit
                      {
                          selection.SetReferencePoint( pickedReferencePoint );
  
@@ -161,7 +191,7 @@ index ed0754f1..c7dc6632 100644
                              grid.SetSnapLineOrigin( selection.GetReferencePoint() );
  
                          controls->ForceCursorPosition( true, pickedReferencePoint );
-@@ -1535,7 +1560,8 @@ bool EDIT_TOOL::doMoveSelection( const TOOL_EVENT& aEvent, BOARD_COMMIT* aCommit
+@@ -1535,7 +1561,8 @@ bool EDIT_TOOL::doMoveSelection( const TOOL_EVENT& aEvent, BOARD_COMMIT* aCommit
  
                          selection.SetReferencePoint( dragOrigin );
  
@@ -171,7 +201,7 @@ index ed0754f1..c7dc6632 100644
                              grid.SetSnapLineOrigin( dragOrigin );
  
                          grid.SetAuxAxes( true, dragOrigin );
-@@ -1633,7 +1659,8 @@ bool EDIT_TOOL::doMoveSelection( const TOOL_EVENT& aEvent, BOARD_COMMIT* aCommit
+@@ -1633,7 +1660,8 @@ bool EDIT_TOOL::doMoveSelection( const TOOL_EVENT& aEvent, BOARD_COMMIT* aCommit
                      originalPos = nextItem->GetPosition();
                      m_selectionTool->AddItemToSel( nextItem );
                      selection.SetReferencePoint( originalPos );
@@ -181,7 +211,7 @@ index ed0754f1..c7dc6632 100644
                          grid.SetSnapLineOrigin( selection.GetReferencePoint() );
  
                      sel_items.clear();
-@@ -1678,9 +1705,12 @@ bool EDIT_TOOL::doMoveSelection( const TOOL_EVENT& aEvent, BOARD_COMMIT* aCommit
+@@ -1678,9 +1706,12 @@ bool EDIT_TOOL::doMoveSelection( const TOOL_EVENT& aEvent, BOARD_COMMIT* aCommit
          }
          else if( evt->IsAction( &PCB_ACTIONS::angleSnapModeChanged ) )
          {

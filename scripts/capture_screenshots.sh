@@ -5,6 +5,8 @@ export DISPLAY=:99
 export LIBGL_ALWAYS_SOFTWARE=1
 export GALLIUM_DRIVER=llvmpipe
 export BROWSER=/bin/true
+export KICAD_ENABLE_WXTRACE=1
+export WXTRACE=KICAD_API
 export XDG_CONFIG_HOME="$RUNNER_TEMP/kicad-config"
 export XDG_CACHE_HOME="$RUNNER_TEMP/kicad-cache"
 export XDG_DATA_HOME="$RUNNER_TEMP/kicad-data"
@@ -12,7 +14,8 @@ export XDG_DATA_HOME="$RUNNER_TEMP/kicad-data"
 mkdir -p "$XDG_CONFIG_HOME/kicad/10.0" "$XDG_CONFIG_HOME/kicad/10.99"
 cp scripts/kicad_common.json "$XDG_CONFIG_HOME/kicad/10.0/kicad_common.json"
 cp scripts/kicad_common.json "$XDG_CONFIG_HOME/kicad/10.99/kicad_common.json"
-rm -f screenshots/move-aligned-dialog.png screenshots/axis-constrained-move.png
+rm -f screenshots/move-aligned-dialog.png screenshots/axis-constrained-move.png \
+  screenshots/plugin-manager.log
 
 Xvfb "$DISPLAY" -screen 0 1600x900x24 -ac -nolisten tcp &
 xvfb_pid=$!
@@ -35,7 +38,7 @@ for _ in $(seq 1 30); do
 done
 test "$display_ready" = true
 
-pcbnew examples/alignment-demo.kicad_pcb &
+pcbnew examples/alignment-demo.kicad_pcb >screenshots/plugin-manager.log 2>&1 &
 pcbnew_pid=$!
 
 pcb_window=
@@ -76,6 +79,23 @@ for _ in $(seq 1 60); do
   sleep 1
 done
 if [[ "$api_ready" != true ]]; then
+  scrot screenshots/startup-debug.png
+  exit 1
+fi
+
+# Verify the plugin from the Nix package was discovered and its managed Python
+# environment became usable. This exercises KiCad's real stock-plugin path.
+plugin_ready=false
+for _ in $(seq 1 180); do
+  if grep -Fq "Manager: marking com.github.unguentum.kicad-move-aligned-to as ready" \
+      screenshots/plugin-manager.log; then
+    plugin_ready=true
+    break
+  fi
+  sleep 1
+done
+if [[ "$plugin_ready" != true ]]; then
+  tail -200 screenshots/plugin-manager.log
   scrot screenshots/startup-debug.png
   exit 1
 fi

@@ -22,9 +22,9 @@
                 installPhase = ''
                   runHook preInstall
                   identifier=com.github.unguentum.kicad-move-aligned-to
-                  mkdir -p package/plugins/$identifier $out
-                  cp plugin.json requirements.txt main.py package/plugins/$identifier/
-                  cp -r move_aligned_to package/plugins/$identifier/
+                  mkdir -p package/plugins $out
+                  cp plugin.json requirements.txt main.py package/plugins/
+                  cp -r move_aligned_to package/plugins/
                   printf '{"identifier":"%s"}\n' "$identifier" > package/metadata.json
                   (cd package && zip -qr "$out/${addonPath}" .)
                   runHook postInstall
